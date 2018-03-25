@@ -1,6 +1,7 @@
 package sse.xs.actor.user
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, Stash}
+import sse.xs.actor.user.UserManageActor.{Request, Response}
 import sse.xs.service.DbService._
 
 /**
@@ -12,23 +13,28 @@ import sse.xs.service.DbService._
 //provide a single dispatcher
 // accepts clients message directly
 
-class UserDBAcceptActor(target: ActorRef) extends Actor {
+class UserDBAcceptActor extends Actor{
 
   import sse.xs.msg.user._
 
-  val manager = target
 
-  override def receive: Receive = {
-    case LoginRequest(account, pwd) =>
-      getExistedUser(account, pwd) match {
-        case Some(user) => manager forward LoginSuccess(user)
-        case None => sender() ! LoginFailure("Invalid account or password!")
+  var manager:ActorRef = _
+  var inited = false
+
+  //成功返回给manageactor,否则直接向用户返回失败
+  override def receive: Receive = ready
+
+  def ready:Receive = {
+    case Request(l:LoginRequest,id) =>
+      getExistedUser(l.account, l.pwd) match {
+        case Some(user) => sender() ! Response(LoginSuccess(user),id)
+        case None => sender() ! Response(LoginFailure("Invalid account or password!"),id)
       }
 
-    case RegisterRequest(account, pwd) =>
-      register(account, pwd) match {
-        case Some(user) => manager forward RegisterSuccess(user)
-        case None => sender() ! RegisterFailure("Illegal or dulplicated account name!")
+    case Request(r:RegisterRequest,id) =>
+      register(r.user, r.pwd) match {
+        case Some(user) => sender() ! Response(RegisterSuccess(user),id)
+        case None => sender() ! Response(RegisterFailure("Illegal or dulplicated account name!"),id)
       }
   }
 }

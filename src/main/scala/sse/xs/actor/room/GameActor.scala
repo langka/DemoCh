@@ -4,6 +4,8 @@ import akka.actor.{Actor, ActorRef}
 import sse.xs.msg.CommonFailure
 import sse.xs.msg.room.{Move, MoveSuccess, OtherMove}
 
+import scala.collection.mutable.ArrayBuffer
+
 /**
   * Created by xusong on 2018/3/18.
   * Email:xusong@bupt.edu.cn
@@ -12,7 +14,7 @@ import sse.xs.msg.room.{Move, MoveSuccess, OtherMove}
 class GameActor(red: ActorRef, black: ActorRef) extends Actor {
   //0 red,1 black
   var redTurn = true
-  var steps: List[Move] = List()
+  val steps: ArrayBuffer[Move] = new ArrayBuffer[Move]
   var stepCount = 0
 
   override def receive = redTurnToMove
@@ -26,7 +28,7 @@ class GameActor(red: ActorRef, black: ActorRef) extends Actor {
     val rule: Receive = {
       case move: Move =>
         if (sender() == red) {
-          steps = move +: steps
+          steps.append(move)
           redTurn = false
           stepCount = stepCount + 1
           sender() ! MoveSuccess
@@ -40,7 +42,7 @@ class GameActor(red: ActorRef, black: ActorRef) extends Actor {
     val rule: Receive = {
       case move: Move =>
         if (sender() == red) {
-          steps = move +: steps
+          steps.append(move)
           redTurn = true
           stepCount = stepCount + 1
           sender() ! MoveSuccess

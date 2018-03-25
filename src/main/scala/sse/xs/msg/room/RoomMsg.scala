@@ -43,7 +43,7 @@ case class OtherMove(from: Pos, to: Pos)
 
 case object GetAllRooms
 
-case class RoomSearchResponse(rooms: List[Long])
+case class RoomSearchResponse(rooms: List[(Long,RoomInfo)])
 
 
 case class CreateRoom(user: User)

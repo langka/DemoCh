@@ -1,6 +1,7 @@
 package sse.xs.actor.room
 
 import akka.actor.{Actor, ActorRef, Props}
+import sse.xs.actor.room.RoomManagerActor.UpdateRoomInfo
 import sse.xs.msg.CommonFailure
 import sse.xs.msg.room._
 import sse.xs.msg.user.{NoBody, User}
@@ -62,6 +63,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
           _._1 ! NewUserEnter(info)
         }
       }
+      roomManger ! UpdateRoomInfo(getRoomInfo,token)
       //
       context.become(waitToStart)
     case LeaveRoom(user) =>
@@ -91,6 +93,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
           master = players(other).get
           context.become(waitingForAnother)
       }
+      roomManger ! UpdateRoomInfo(getRoomInfo,token)
   }
 
   def gameStarted: Receive = messageDispatcher orElse {
@@ -99,7 +102,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
 
   //the room is invalid now
   def waitTobeKilled: Receive = {
-    case _ => sender() ! CommonFailure("房间已失效！")
+    case _ => sender() ! CommonFailure("房间链接已失效！")
   }
 
   //转发消息的逻辑

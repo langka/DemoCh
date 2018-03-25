@@ -15,7 +15,7 @@ object Lazytest extends App {
       println(x + "" + y)
   }
   getExistedUser(u.name, u.pwd) foreach f(0)
-  register(u.name, u.pwd) foreach  f(1)
+  register("xusong3", u.pwd) foreach  f(1)
   getExistedUser(u.name, u.pwd) foreach f(2)
   register(u.name, u.pwd) foreach f(3)
 
