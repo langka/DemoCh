@@ -37,7 +37,7 @@ class RoomManagerActor extends Actor {
       sender() ! "OJBK"
 
     case GetAllRooms =>
-      sender() ! RoomSearchResponse(infos.toList)
+      sender() ! RoomSearchResponse(infos.toArray)
 
     case CreateRoom(user) =>
       roomId += 1

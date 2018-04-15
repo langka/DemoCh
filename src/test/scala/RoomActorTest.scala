@@ -10,8 +10,8 @@ import akka.util.Timeout
 
 import scala.concurrent.duration._
 import org.scalatest.{FunSpecLike, Matchers}
-import sse.xs.actor.room.RoomManagerActor
-import sse.xs.msg.room.{CreateRoom, EnterRoom, GetAllRooms, RoomSearchResponse}
+import sse.xs.actor.room.{GameActor, RoomManagerActor}
+import sse.xs.msg.room._
 import sse.xs.msg.user.User
 import akka.pattern._
 
@@ -44,6 +44,9 @@ class RoomActorTest extends FunSpecLike with Matchers {
       val child = manager.getSingleChild("room" + 1)
       child.tell(EnterRoom(user3), t3)
       manager.tell(EnterRoom(user2), t2)
+
+    }
+    it("print serialised"){
 
     }
   }

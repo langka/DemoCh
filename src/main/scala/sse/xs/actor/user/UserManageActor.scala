@@ -2,6 +2,7 @@ package sse.xs.actor.user
 
 import akka.actor.{Actor, ActorIdentity, ActorRef, Identify}
 import sse.xs.actor.user.UserManageActor.{Request, Response}
+import sse.xs.msg.room.{InviteMessage, TalkMessage}
 import sse.xs.msg.user._
 
 import scala.collection.mutable
@@ -28,14 +29,14 @@ class UserManageActor(dbActor: ActorRef) extends Actor {
   def cachedInMap(user: User)(s: ActorRef) = {
     userToken += 1
     tokenMap.put(userToken, user)
-    userMap.put(user.name, sender())
+    userMap.put(user.name, s)
   }
 
   override def receive = {
     case "HELLO" =>
       sender() ! "OJBK"
     case l: LoginRequest =>
-      println("sender:"+sender().path)
+      println("sender:" + sender().path)
       requestCount += 1
       dbActor ! Request(l, requestCount)
       requestMap.put(requestCount, sender())
@@ -62,6 +63,22 @@ class UserManageActor(dbActor: ActorRef) extends Actor {
     case Response(r: RegisterFailure, id) =>
       requestMap.remove(id) foreach (_ ! r)
 
+    //直接转发的message,后续可能针对消息的不同种类作不同处理
+    case t: TalkMessage =>
+      notifyAllUser(t)
+    case i: InviteMessage =>
+      notifyAllUser(i)
+
+  }
+
+  private def getAllUserRef = {
+    userMap.values
+  }
+
+  def notifyAllUser(x: Any): Unit = {
+    getAllUserRef foreach { a =>
+      a ! x
+    }
   }
 }
 

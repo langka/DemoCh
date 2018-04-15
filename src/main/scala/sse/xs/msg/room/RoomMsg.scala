@@ -13,18 +13,28 @@ case class RoomInfo(players: Array[Option[User]], master: User)
 
 case class EnterRoom(user: User)
 
-case class EnterRoomSuccess(roomInfo: RoomInfo)
+case class EnterRoomSuccess(roomInfo: RoomInfo, id: Long)
 
 case class NewUserEnter(roomInfo: RoomInfo)
 
-case class TalkMessage(speaker: String, detail: String)
 
+case class TalkMessage(speaker: String, detail: String,id:Long)
 
 case class LeaveRoom(user: User)
 
 case object LeaveRoomSuccess
 
-case object OtherLeaveRoom
+case class OtherLeaveRoom(roomInfo:RoomInfo)
+
+
+case object SwapRoom
+
+case object Kick
+
+case class SwapSuccess(r: RoomInfo)
+
+case class KickSuccess(r: RoomInfo)
+
 
 //game control
 case object StartGame
@@ -41,9 +51,15 @@ case object MoveSuccess
 case class OtherMove(from: Pos, to: Pos)
 
 
+case object Surrender
+
+case class EndGame(red: Boolean)
+
+
 case object GetAllRooms
 
-case class RoomSearchResponse(rooms: List[(Long,RoomInfo)])
+case class RoomSearchResponse(rooms: Array[(Long, RoomInfo)])
+
 
 
 case class CreateRoom(user: User)
@@ -53,4 +69,5 @@ case class DestroyRoom(id: Long)
 case class CreateSuccess(token: Long)
 
 
-
+//-------------20180409
+case class InviteMessage(user: User, roomId: Long, mid:Long)

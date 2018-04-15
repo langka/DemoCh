@@ -1,10 +1,13 @@
 package sse.xs.actor.room
 
 import akka.actor.{Actor, ActorRef, Props}
+import sse.xs.actor.room.GameActor.GameEnded
 import sse.xs.actor.room.RoomManagerActor.UpdateRoomInfo
 import sse.xs.msg.CommonFailure
 import sse.xs.msg.room._
-import sse.xs.msg.user.{NoBody, User}
+import sse.xs.msg.user.User
+
+import scala.collection.mutable.ListBuffer
 
 /**
   * Created by xusong on 2018/3/17.
@@ -20,7 +23,6 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     LeaveRoom
     StartGame
 
-
    */
 
 
@@ -30,6 +32,8 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
   players(0) = Some(master)
 
   var gameActor: ActorRef = _
+
+  val talkMessages: ListBuffer[TalkMessage] = ListBuffer()
 
 
   // get the current room state!
@@ -51,19 +55,20 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
       if (players(0).isEmpty) {
         players(0) = Some((sender(), user))
         val info = getRoomInfo
-        sender() ! EnterRoomSuccess(info)
-        players(1) foreach {
-          _._1 ! NewUserEnter(info)
+        sender() ! EnterRoomSuccess(info, token)
+        players(1) foreach {x=>
+          x._1 ! NewUserEnter(info)
         }
       } else {
         players(1) = Some(sender(), user)
         val info = getRoomInfo
-        sender() ! EnterRoomSuccess(info)
+        sender() ! EnterRoomSuccess(info, token)
         players(0) foreach {
-          _._1 ! NewUserEnter(info)
+          x=>
+            x._1 ! NewUserEnter(info)
         }
       }
-      roomManger ! UpdateRoomInfo(getRoomInfo,token)
+      roomManger ! UpdateRoomInfo(getRoomInfo, token)
       //
       context.become(waitToStart)
     case LeaveRoom(user) =>
@@ -76,7 +81,8 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     rejectEnter("房间已满") orElse {
     case StartGame =>
       notifyAllUser(GameStarted(getRoomInfo))
-      gameActor = context.actorOf(Props(classOf[GameActor], players(0).get._1, players(1).get._1))
+      gameActor = context.actorOf(Props(classOf[GameActor], self, players(0).get._1, players(1).get._1,
+        players(0).get._2.id, players(1).get._2.id))
       context.become(gameStarted)
     case LeaveRoom(user) =>
       //有人离开
@@ -86,18 +92,20 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
         case i: Int =>
           val other = if (i == 0) 1 else 0
           sender() ! LeaveRoomSuccess
-          players(other) foreach {
-            _._1 ! OtherLeaveRoom
-          }
+
           players(i) = None
           master = players(other).get
+          players(other) foreach {
+            _._1 ! OtherLeaveRoom(getRoomInfo)
+          }
           context.become(waitingForAnother)
       }
-      roomManger ! UpdateRoomInfo(getRoomInfo,token)
+      roomManger ! UpdateRoomInfo(getRoomInfo, token)
   }
 
   def gameStarted: Receive = messageDispatcher orElse {
     case m: Move => gameActor forward m
+    case GameEnded => context.become(waitToStart)
   }
 
   //the room is invalid now
@@ -112,6 +120,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
         _._1 ! msg
       }
     }
+      talkMessages.append(msg)
   }
 
   def rejectEnter(msg: String): Receive = {
@@ -131,7 +140,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
 }
 
 object RoomActor {
-  def props(token: Long, owner:(ActorRef, User)): Props = {
+  def props(token: Long, owner: (ActorRef, User)): Props = {
     Props(classOf[RoomActor], token, owner)
   }
 }
