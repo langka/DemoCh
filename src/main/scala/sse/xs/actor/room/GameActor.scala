@@ -37,6 +37,7 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
           stepCount = stepCount + 1
           sender() ! MoveSuccess
           black ! OtherMove(move.from, move.to)
+          context.become(blackTurnToMove)
         }
     }
     rule orElse illegalMove
@@ -51,6 +52,7 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
           stepCount = stepCount + 1
           sender() ! MoveSuccess
           red ! OtherMove(move.from, move.to)
+          context.become(redTurnToMove)
         }
     }
     rule orElse illegalMove
