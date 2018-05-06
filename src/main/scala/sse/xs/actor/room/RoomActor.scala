@@ -22,7 +22,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     EnterRoom
     LeaveRoom
     StartGame
-
+    SwapRoom
    */
 
 
@@ -50,7 +50,8 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
 
   //initial state,wait for another one to join in room
   //there must be a vacant!
-  def waitingForAnother: Receive = messageDispatcher orElse {
+  def waitingForAnother: Receive = messageDispatcher orElse
+    swapDispatcher orElse {
     case EnterRoom(user: User) =>
       if (players(0).isEmpty) {
         players(0) = Some((sender(), user))
@@ -74,10 +75,11 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     case LeaveRoom(user) =>
       sender() ! LeaveRoomSuccess
       roomManger ! DestroyRoom(token)
-      context.become(waitTobeKilled)
+      context.stop(self)
   }
 
   def waitToStart: Receive = messageDispatcher orElse
+    swapDispatcher orElse
     rejectEnter("房间已满") orElse {
     case StartGame =>
       notifyAllUser(GameStarted(getRoomInfo))
@@ -122,6 +124,15 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     }
       talkMessages.append(msg)
   }
+
+  def swapDispatcher:Receive = {
+    case SwapRoom =>
+      val temp = players(0)
+      players(0) = players(1)
+      players(1) = temp
+      notifyAllUser(SwapSuccess(getRoomInfo))
+  }
+
 
   def rejectEnter(msg: String): Receive = {
     case e: EnterRoom => sender() ! CommonFailure(msg)

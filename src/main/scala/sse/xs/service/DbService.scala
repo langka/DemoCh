@@ -12,7 +12,7 @@ import scala.collection.mutable.ArrayBuffer
   * Email:xusong@bupt.edu.cn
   * Email:xusongnice@gmail.com
   */
-object DbService {
+class DbService {
 
   import DbInfo._
 

@@ -10,18 +10,18 @@ import sse.xs.service.DbService
 class DbTest extends FunSpecLike with Matchers {
 
 
-
+  val dbService = new DbService
 
   describe("insert into user") {
     it("insert xs") {
     }
     it("insert game"){
-      val k=DbService.saveGame(0,0,0,0,"")
-      DbService.saveGame(1,7,1,7,"")
-      DbService.saveGame(1,7,7,1,"")
-      DbService.saveGame(1,7,1,7,"")
-      println(DbService.winAndLoseOf(1))
-      println(DbService.winAndLoseOf(7))
+      val k=dbService.saveGame(0,0,0,0,"")
+      dbService.saveGame(1,7,1,7,"")
+      dbService.saveGame(1,7,7,1,"")
+      dbService.saveGame(1,7,1,7,"")
+      println(dbService.winAndLoseOf(1))
+      println(dbService.winAndLoseOf(7))
       println(k)
     }
   }

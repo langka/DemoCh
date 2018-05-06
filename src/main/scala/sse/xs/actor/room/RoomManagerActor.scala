@@ -29,6 +29,7 @@ class RoomManagerActor extends Actor {
 
   var roomId = 0L
   val rooms = new mutable.HashMap[Long, ActorRef]()
+  //存储房间内当前的最新房间信息
   val infos = new mutable.HashMap[Long, RoomInfo]()
 
   override def receive = {
@@ -48,8 +49,8 @@ class RoomManagerActor extends Actor {
       sender() ! CreateSuccess(roomId)
 
     case DestroyRoom(id) =>
-      rooms.get(id) foreach context.stop
       rooms.remove(id)
+      infos.remove(id)
     case UpdateRoomInfo(info, id) =>
       infos.put(id, info)
   }

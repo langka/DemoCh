@@ -2,9 +2,9 @@ package sse.xs.actor.room
 
 import akka.actor.{Actor, ActorRef}
 import sse.xs.actor.room.GameActor.GameEnded
+import sse.xs.actor.room.GameDbActor.SaveGame
 import sse.xs.msg.CommonFailure
 import sse.xs.msg.room._
-import sse.xs.service.DbService
 import sse.xs.util.StrUtil
 
 import scala.collection.mutable.ArrayBuffer
@@ -19,6 +19,9 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
   var redTurn = true
   val steps: ArrayBuffer[Move] = new ArrayBuffer[Move]
   var stepCount = 0
+
+  //gamedb actor
+  private val gameDbActor = context.actorSelection("/user/gamedb")
 
   override def receive = redTurnToMove
 
@@ -65,18 +68,17 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
       val lose = if (sender() == red) rid else bid
       red ! EndGame(redWin)
       black ! EndGame(redWin)
-      DbService.saveGame(rid, bid, win, lose, StrUtil.getStepsAsString(steps))
-      this.red ! EndGame(redWin)
-      this.black ! EndGame(redWin)
+      gameDbActor ! SaveGame(rid, bid, win, lose, StrUtil.getStepsAsString(steps))
       room ! GameEnded
       context.stop(self)
     case EndGame(redWin) =>
       if (redWin)
-        DbService.saveGame(rid, bid, rid, bid, StrUtil.getStepsAsString(steps))
+        gameDbActor ! SaveGame(rid, bid, rid, bid, StrUtil.getStepsAsString(steps))
       else
-        DbService.saveGame(rid, bid, bid, rid, StrUtil.getStepsAsString(steps))
-      this.red ! EndGame(redWin)
-      this.black ! EndGame(redWin)
+        gameDbActor ! SaveGame(rid, bid, bid, rid, StrUtil.getStepsAsString(steps))
+      //现在游戏结束由客户端自行判定，与服务器端无关,服务器端不需要通知客户端
+      //this.red ! EndGame(redWin)
+      // this.black ! EndGame(redWin)
       room ! GameEnded
       context.stop(self)
   }
