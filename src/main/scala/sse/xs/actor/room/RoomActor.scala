@@ -83,6 +83,11 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     case LeaveRoom(user) =>
       findUser(user) match {
         case -1=>
+          watchers.remove(sender())
+          val o = OtherLeaveRoom(getRoomInfo)
+          notifyAllPlayers(o)
+          notifyAllWatchers(o)
+
         case _=>
           sender() ! LeaveRoomSuccess
           roomManger ! DestroyRoom(token)
@@ -105,6 +110,10 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
       findUser(user) match {
         case -1 =>
         //观众
+          watchers.remove(sender())
+          val o = OtherLeaveRoom(getRoomInfo)
+          notifyAllPlayers(o)
+          notifyAllWatchers(o)
 
         case i: Int =>
           val other = if (i == 0) 1 else 0
