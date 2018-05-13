@@ -1,4 +1,5 @@
 import org.scalatest.{FunSpec, FunSpecLike, Matchers}
+import sse.xs.msg.game.GetGameHistory
 import sse.xs.msg.user.User
 import sse.xs.service.DbService
 
@@ -16,13 +17,10 @@ class DbTest extends FunSpecLike with Matchers {
     it("insert xs") {
     }
     it("insert game"){
-      val k=dbService.saveGame(0,0,0,0,"")
-      dbService.saveGame(1,7,1,7,"")
-      dbService.saveGame(1,7,7,1,"")
-      dbService.saveGame(1,7,1,7,"")
-      println(dbService.winAndLoseOf(1))
-      println(dbService.winAndLoseOf(7))
-      println(k)
+      val g = GetGameHistory(1)
+      dbService.requireGameHistories(g).foreach(x=>println(x.matches))
+
+
     }
   }
 

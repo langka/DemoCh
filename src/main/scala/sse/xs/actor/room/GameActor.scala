@@ -5,8 +5,10 @@ import sse.xs.actor.room.GameActor.GameEnded
 import sse.xs.actor.room.GameDbActor.SaveGame
 import sse.xs.msg.CommonFailure
 import sse.xs.msg.room._
+import sse.xs.msg.user.User
 import sse.xs.util.StrUtil
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 /**
@@ -14,11 +16,14 @@ import scala.collection.mutable.ArrayBuffer
   * Email:xusong@bupt.edu.cn
   * Email:xusongnice@gmail.com
   */
-class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: Int) extends Actor {
+class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: Int,
+                watchers: mutable.HashMap[ActorRef, User]) extends Actor {
   //0 red,1 black
   var redTurn = true
   val steps: ArrayBuffer[Move] = new ArrayBuffer[Move]
   var stepCount = 0
+
+  val audience = watchers.keys
 
   //gamedb actor
   private val gameDbActor = context.actorSelection("/user/gamedb")
@@ -40,10 +45,14 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
           stepCount = stepCount + 1
           sender() ! MoveSuccess
           black ! OtherMove(move.from, move.to)
+          audience.foreach{p=>
+            p ! OtherMove(move.from, move.to)
+
+          }
           context.become(blackTurnToMove)
         }
     }
-    rule orElse illegalMove
+    rule orElse illegalMove orElse endGame
   }
 
   def blackTurnToMove: Receive = {
@@ -55,10 +64,15 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
           stepCount = stepCount + 1
           sender() ! MoveSuccess
           red ! OtherMove(move.from, move.to)
+          audience.foreach{ p=>
+            p ! OtherMove(move.from, move.to)
+
+          }
+
           context.become(redTurnToMove)
         }
     }
-    rule orElse illegalMove
+    rule orElse illegalMove orElse endGame
   }
 
   def endGame: Receive = {
@@ -66,8 +80,17 @@ class GameActor(room: ActorRef, red: ActorRef, black: ActorRef, rid: Int, bid: I
       val redWin = if (sender() == red) false else true
       val win = if (sender() == red) bid else rid
       val lose = if (sender() == red) rid else bid
-      red ! EndGame(redWin)
-      black ! EndGame(redWin)
+      if (redWin) {
+        red ! OtherSurrender
+      } else {
+        black ! OtherSurrender
+      }
+      audience foreach{
+        _ ! OtherSurrender
+      }
+
+      val surrenderMove = Move(Pos(-1, -1), Pos(-1, -1))
+      steps.append(surrenderMove)
       gameDbActor ! SaveGame(rid, bid, win, lose, StrUtil.getStepsAsString(steps))
       room ! GameEnded
       context.stop(self)

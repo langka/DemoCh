@@ -2,6 +2,7 @@ package sse.xs.actor.user
 
 import akka.actor.{Actor, ActorIdentity, ActorRef, Identify}
 import sse.xs.actor.user.UserManageActor.{Request, Response}
+import sse.xs.msg.game.GetGameHistory
 import sse.xs.msg.room.{InviteMessage, TalkMessage}
 import sse.xs.msg.user._
 
@@ -68,6 +69,13 @@ class UserManageActor(dbActor: ActorRef) extends Actor {
       notifyAllUser(t)
     case i: InviteMessage =>
       notifyAllUser(i)
+
+
+    case modify: ModifyU =>
+      dbActor forward modify
+
+    case get: GetGameHistory =>
+      dbActor forward get
 
   }
 

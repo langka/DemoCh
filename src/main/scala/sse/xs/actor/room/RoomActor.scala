@@ -7,6 +7,7 @@ import sse.xs.msg.CommonFailure
 import sse.xs.msg.room._
 import sse.xs.msg.user.User
 
+import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 /**
@@ -35,6 +36,8 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
 
   val talkMessages: ListBuffer[TalkMessage] = ListBuffer()
 
+  val watchers: mutable.HashMap[ActorRef, User] = new mutable.HashMap[ActorRef, User]
+
 
   // get the current room state!
   private def getRoomInfo = {
@@ -43,7 +46,9 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
         _._2
       }
     }
-    RoomInfo(users, master._2)
+    val watching = watchers.values.toList
+
+    RoomInfo(users, master._2, watching)
   }
 
   override def receive = waitingForAnother
@@ -51,46 +56,56 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
   //initial state,wait for another one to join in room
   //there must be a vacant!
   def waitingForAnother: Receive = messageDispatcher orElse
-    swapDispatcher orElse {
+    swapDispatcher orElse watcherDispatcher orElse {
     case EnterRoom(user: User) =>
       if (players(0).isEmpty) {
         players(0) = Some((sender(), user))
         val info = getRoomInfo
         sender() ! EnterRoomSuccess(info, token)
-        players(1) foreach {x=>
+        players(1) foreach { x =>
           x._1 ! NewUserEnter(info)
         }
+        notifyAllWatchers(NewUserEnter(info))
       } else {
         players(1) = Some(sender(), user)
         val info = getRoomInfo
         sender() ! EnterRoomSuccess(info, token)
         players(0) foreach {
-          x=>
+          x =>
             x._1 ! NewUserEnter(info)
         }
+        notifyAllWatchers(NewUserEnter(info))
       }
+
       roomManger ! UpdateRoomInfo(getRoomInfo, token)
       //
       context.become(waitToStart)
     case LeaveRoom(user) =>
-      sender() ! LeaveRoomSuccess
-      roomManger ! DestroyRoom(token)
-      context.stop(self)
+      findUser(user) match {
+        case -1=>
+        case _=>
+          sender() ! LeaveRoomSuccess
+          roomManger ! DestroyRoom(token)
+          context.stop(self)
+      }
+
   }
 
   def waitToStart: Receive = messageDispatcher orElse
     swapDispatcher orElse
-    rejectEnter("房间已满") orElse {
+    rejectEnter("房间已满") orElse watcherDispatcher orElse {
     case StartGame =>
-      notifyAllUser(GameStarted(getRoomInfo))
+      notifyAllPlayers(GameStarted(getRoomInfo))
+      notifyAllWatchers(GameStarted(getRoomInfo))
       gameActor = context.actorOf(Props(classOf[GameActor], self, players(0).get._1, players(1).get._1,
-        players(0).get._2.id, players(1).get._2.id))
+        players(0).get._2.id, players(1).get._2.id,watchers))
       context.become(gameStarted)
     case LeaveRoom(user) =>
       //有人离开
       findUser(user) match {
         case -1 =>
-        //do nothing
+        //观众
+
         case i: Int =>
           val other = if (i == 0) 1 else 0
           sender() ! LeaveRoomSuccess
@@ -100,6 +115,7 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
           players(other) foreach {
             _._1 ! OtherLeaveRoom(getRoomInfo)
           }
+          notifyAllWatchers(OtherLeaveRoom(getRoomInfo))
           context.become(waitingForAnother)
       }
       roomManger ! UpdateRoomInfo(getRoomInfo, token)
@@ -107,8 +123,36 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
 
   def gameStarted: Receive = messageDispatcher orElse {
     case m: Move => gameActor forward m
+    case e: EndGame => gameActor forward e
+    case Surrender => gameActor forward Surrender
     case GameEnded => context.become(waitToStart)
+
+    case e:EnterRoom =>sender() ! CommonFailure("游戏已开始!")
+    case w:WatchGame =>sender() ! CommonFailure("游戏已开始!")
   }
+
+
+  def watcherDispatcher: Receive = {
+    case w: WatchGame =>
+      val previous = getActors
+      watchers.put(sender(), w.user)
+      val info2 = getRoomInfo
+      sender() ! EnterRoomSuccess(info2,token)
+      val enterInfo = NewUserEnter(info2)
+      previous.foreach( _ ! enterInfo)
+
+    case WatcherLeave =>
+      watchers.remove(sender())
+      notifyAllPlayers(OtherLeaveRoom(getRoomInfo))
+      notifyAllWatchers(OtherLeaveRoom(getRoomInfo))
+  }
+
+  def getActors:List[ActorRef] = {
+    val p=players.filter(_.isDefined).map(_.get).map(_._1).toList
+    val w = watchers.keys.toList
+    p ++ w
+  }
+
 
   //the room is invalid now
   def waitTobeKilled: Receive = {
@@ -122,15 +166,17 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
         _._1 ! msg
       }
     }
+      notifyAllWatchers(msg)
       talkMessages.append(msg)
   }
 
-  def swapDispatcher:Receive = {
+  def swapDispatcher: Receive = {
     case SwapRoom =>
       val temp = players(0)
       players(0) = players(1)
       players(1) = temp
-      notifyAllUser(SwapSuccess(getRoomInfo))
+      notifyAllPlayers(SwapSuccess(getRoomInfo))
+      notifyAllWatchers(SwapSuccess(getRoomInfo))
   }
 
 
@@ -144,8 +190,15 @@ class RoomActor(token: Long, var master: (ActorRef, User)) extends Actor {
     else -1
   }
 
-  def notifyAllUser(msg: Any): Unit = {
+  def notifyAllPlayers(msg: Any): Unit = {
     players foreach { p => p.foreach(_._1 ! msg) }
+  }
+
+  def notifyAllWatchers(msg: Any): Unit = {
+    watchers foreach {
+      p =>
+        p._1 ! msg
+    }
   }
 
 }

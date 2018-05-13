@@ -2,6 +2,8 @@ package sse.xs.actor.user
 
 import akka.actor.{Actor, ActorRef, Stash}
 import sse.xs.actor.user.UserManageActor.{Request, Response}
+import sse.xs.msg.CommonFailure
+import sse.xs.msg.game.GetGameHistory
 import sse.xs.service.DbService
 
 /**
@@ -36,6 +38,24 @@ class UserDBAcceptActor extends Actor {
       dbService.register(r.user, r.pwd) match {
         case Some(user) => sender() ! Response(RegisterSuccess(user), id)
         case None => sender() ! Response(RegisterFailure("Illegal or dulplicated account name!"), id)
+      }
+
+    case mpdify: ModifyU =>
+      if (dbService.modifyUserInfo(mpdify.user)) {
+        sender() ! ModifySuccess(mpdify.user)
+      } else {
+        sender() ! CommonFailure("无法修改数据库个人信息！")
+      }
+
+    //dbService.
+    case getHistory: GetGameHistory =>
+      val op=dbService.requireGameHistories(getHistory)
+      if(op.isDefined){
+        op foreach{g=>
+          sender() ! g
+        }
+      }else{
+        sender() ! CommonFailure("从数据库查询数据失败!")
       }
   }
 }

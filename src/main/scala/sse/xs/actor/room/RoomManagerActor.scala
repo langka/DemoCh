@@ -13,12 +13,12 @@ import scala.collection.mutable
   *
   * Accepted Messages are:
   * from client:
-  *   GetAllRooms
-  *   CreateRoom
+  * GetAllRooms
+  * CreateRoom
   *
   * from local:
-  *   DestroyRoom
-  *   UpdateRoomInfo
+  * DestroyRoom
+  * UpdateRoomInfo
   *
   *
   */
@@ -45,7 +45,7 @@ class RoomManagerActor extends Actor {
       val room = context.actorOf(RoomActor.props(roomId, (sender(), user)), "room" + roomId)
       rooms.put(roomId, room)
       val players = Array(Some(user), None)
-      infos.put(roomId, RoomInfo(players, user))
+      infos.put(roomId, RoomInfo(players, user, List()))
       sender() ! CreateSuccess(roomId)
 
     case DestroyRoom(id) =>
